@@ -23,7 +23,7 @@ export interface CharacterProfile {
 }
 
 export interface InteractionState {
-  type: 'character' | 'summary' | 'scene-image' | 'definition' | null;
+  type: 'character' | 'summary' | 'scene-image' | 'definition' | 'settings' | null;
   data: any;
   loading: boolean;
   error: string | null;

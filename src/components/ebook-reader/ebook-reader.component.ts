@@ -10,53 +10,57 @@ import { InteractionState } from '../../models/ebook.model';
     <div class="flex h-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <!-- Sidebar for Chapters and Characters -->
       <aside 
-        class="absolute z-30 inset-y-0 left-0 w-80 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out"
+        class="absolute z-30 inset-y-0 left-0 w-80 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out flex flex-col"
         [class.translate-x-0]="isMenuOpen()"
         [class.-translate-x-full]="!isMenuOpen()">
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-bold">Menu</h2>
-          <button (click)="isMenuOpen.set(false)" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-             <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex space-x-1 bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
-            <button 
-              (click)="activeTab.set('chapters')" 
-              class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
-              [class.bg-white]="activeTab() === 'chapters'"
-              [class.dark:bg-gray-900]="activeTab() === 'chapters'"
-              [class.text-gray-800]="activeTab() === 'chapters'"
-              [class.dark:text-white]="activeTab() === 'chapters'"
-              [class.text-gray-600]="activeTab() !== 'chapters'"
-              [class.dark:text-gray-400]="activeTab() !== 'chapters'">
-              Chapters
-            </button>
-            <button 
-              (click)="activeTab.set('characters')"
-              class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
-              [class.bg-white]="activeTab() === 'characters'"
-              [class.dark:bg-gray-900]="activeTab() === 'characters'"
-              [class.text-gray-800]="activeTab() === 'characters'"
-              [class.dark:text-white]="activeTab() === 'characters'"
-              [class.text-gray-600]="activeTab() !== 'characters'"
-              [class.dark:text-gray-400]="activeTab() !== 'characters'">
-              Characters
-            </button>
-            <button 
-              (click)="activeTab.set('summaries')"
-              class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
-              [class.bg-white]="activeTab() === 'summaries'"
-              [class.dark:bg-gray-900]="activeTab() === 'summaries'"
-              [class.text-gray-800]="activeTab() === 'summaries'"
-              [class.dark:text-white]="activeTab() === 'summaries'"
-              [class.text-gray-600]="activeTab() !== 'summaries'"
-              [class.dark:text-gray-400]="activeTab() !== 'summaries'">
-              Summaries
+        
+        <div>
+          <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-bold">Menu</h2>
+            <button (click)="isMenuOpen.set(false)" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex space-x-1 bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+              <button 
+                (click)="activeTab.set('chapters')" 
+                class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
+                [class.bg-white]="activeTab() === 'chapters'"
+                [class.dark:bg-gray-900]="activeTab() === 'chapters'"
+                [class.text-gray-800]="activeTab() === 'chapters'"
+                [class.dark:text-white]="activeTab() === 'chapters'"
+                [class.text-gray-600]="activeTab() !== 'chapters'"
+                [class.dark:text-gray-400]="activeTab() !== 'chapters'">
+                Chapters
+              </button>
+              <button 
+                (click)="activeTab.set('characters')"
+                class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
+                [class.bg-white]="activeTab() === 'characters'"
+                [class.dark:bg-gray-900]="activeTab() === 'characters'"
+                [class.text-gray-800]="activeTab() === 'characters'"
+                [class.dark:text-white]="activeTab() === 'characters'"
+                [class.text-gray-600]="activeTab() !== 'characters'"
+                [class.dark:text-gray-400]="activeTab() !== 'characters'">
+                Characters
+              </button>
+              <button 
+                (click)="activeTab.set('summaries')"
+                class="w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors"
+                [class.bg-white]="activeTab() === 'summaries'"
+                [class.dark:bg-gray-900]="activeTab() === 'summaries'"
+                [class.text-gray-800]="activeTab() === 'summaries'"
+                [class.dark:text-white]="activeTab() === 'summaries'"
+                [class.text-gray-600]="activeTab() !== 'summaries'"
+                [class.dark:text-gray-400]="activeTab() !== 'summaries'">
+                Summaries
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="overflow-y-auto h-[calc(100vh-140px)]">
+        
+        <div class="overflow-y-auto flex-grow">
           @if (activeTab() === 'chapters') {
             <ul>
               @for(chapter of progressService.book()?.chapters; track chapter.title; let i = $index) {
@@ -92,6 +96,15 @@ import { InteractionState } from '../../models/ebook.model';
               }
             </ul>
           }
+        </div>
+         <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button (click)="openSettings()" class="w-full flex items-center justify-start px-4 py-2 text-sm font-semibold rounded-md transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>My Settings</span>
+            </button>
         </div>
       </aside>
       @if(isMenuOpen()) {
@@ -222,6 +235,49 @@ import { InteractionState } from '../../models/ebook.model';
                   @case ('definition') {
                      <p class="text-lg">{{ interactionState().data }}</p>
                   }
+                  @case ('settings') {
+                    <div class="space-y-6">
+                      <div>
+                        <h4 class="text-lg font-semibold mb-2">Appearance</h4>
+                        <div class="flex items-center justify-between">
+                          <label for="theme-toggle" class="text-gray-700 dark:text-gray-300">Dark Mode</label>
+                          <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                              <input type="checkbox" name="theme-toggle" id="theme-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                              <label for="theme-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 class="text-lg font-semibold mb-2">Reading Preferences</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <label for="font-size" class="text-gray-700 dark:text-gray-300">Font Size</label>
+                                <div class="flex items-center space-x-2">
+                                    <button class="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700">-</button>
+                                    <span>100%</span>
+                                    <button class="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700">+</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                 <label for="line-spacing" class="text-gray-700 dark:text-gray-300">Line Spacing</label>
+                                 <div class="flex items-center space-x-2">
+                                    <button class="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700">-</button>
+                                    <span>Normal</span>
+                                    <button class="px-2 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700">+</button>
+                                </div>
+                            </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 class="text-lg font-semibold mb-2">Account</h4>
+                        <button class="w-full px-4 py-2 text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                          Manage Subscription
+                        </button>
+                      </div>
+                    </div>
+                  }
                 }
               }
             </div>
@@ -240,6 +296,13 @@ import { InteractionState } from '../../models/ebook.model';
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: #3B82F6; /* blue-500 */
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: #3B82F6; /* blue-500 */
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -282,6 +345,7 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
       case 'summary': return `Summary`;
       case 'scene-image': return 'Scene Visualization';
       case 'definition': return `Definition`;
+      case 'settings': return 'My Settings';
       default: return '';
     }
   });
@@ -417,6 +481,11 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
     this.interactionState.set({ type: null, data: null, loading: false, error: null, loadingMessage: '' });
     this.selectedText.set('');
     this.selectionRect.set(null);
+  }
+
+  openSettings() {
+    this.interactionState.set({ type: 'settings', data: null, loading: false, error: null, loadingMessage: '' });
+    this.isMenuOpen.set(false);
   }
 
   async viewCharacter(name: string) {
