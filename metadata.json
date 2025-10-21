@@ -1,0 +1,5 @@
+{
+  "name": "AI E-Book Interactor",
+  "description": "An interactive E-Book reader that uses AI to provide character details, generate summaries, and visualize scenes from the book you are reading.",
+  "requestFramePermissions": []
+}
