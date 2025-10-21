@@ -19,8 +19,6 @@ export class GeminiService {
   }
 
   async structureBookFromText(textContent: string): Promise<Book> {
-    const truncatedContent = textContent.substring(0, 30000);
-
     const bookSchema = {
       type: Type.OBJECT,
       properties: {
@@ -50,7 +48,7 @@ export class GeminiService {
     try {
       const response = await this.ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: `Analyze the following text from a book. The text may be incomplete. Based on the provided text, identify the title, author, a list of main characters, and divide the text into logical chapters with titles and content. The first chapter should start from the beginning of the text. Do not invent content not present in the text. Return the result in JSON format.\n\nTEXT:\n${truncatedContent}`,
+        contents: `Analyze the following book text. Identify the title, author, a list of main characters, and divide the text into logical chapters with titles and full content. The first chapter should start from the beginning of the text. Do not invent content not present in the text. Return the result in JSON format.\n\nTEXT:\n${textContent}`,
         config: {
           responseMimeType: 'application/json',
           responseSchema: bookSchema,
@@ -71,7 +69,7 @@ export class GeminiService {
         type: Type.OBJECT,
         properties: {
             description: { type: Type.STRING, description: "A detailed description of the character's personality, motivations, and role in the story." },
-            physicalAppearance: { type: Type.STRING, description: "A description of the character's physical appearance." },
+            physicalAppearance: { type: Type.STRING, description: "A description of the character's physical appearance. If none is found, this should be an empty string." },
             relationships: {
                 type: Type.ARRAY,
                 description: "A list of the character's key relationships with other characters.",
@@ -87,14 +85,28 @@ export class GeminiService {
         },
         required: ["description", "physicalAppearance", "relationships"],
     };
+    
+    const systemInstruction = `You are an expert literary analyst. Your task is to create a detailed character profile based on the provided text from a book.
+- **Analyze Deeply**: Read the text carefully to understand the character's personality, appearance, and relationships.
+- **Be Accurate**: Only include details explicitly mentioned or strongly implied in the text. Do not invent information.
+- **Relationships are CRITICAL**: Actively search for mentions of other characters interacting with the target character. If relationships are described, you MUST include them. For example, if the text says "Andrew's best friend, Natalie," you must list Natalie as a 'Best Friend'.
+- **Appearance**: If there is any description of the character's physical appearance, you MUST include it. If there is absolutely no description, return an empty string for the 'physicalAppearance' field. Do not write "No description available."`;
 
-    const bookContext = `The book is "${book.title}" by ${book.author}. The main characters are: ${book.characters.join(', ')}.`;
+    const fullBookText = book.chapters.map(c => c.content).join('\n\n');
+    const contextText = fullBookText.substring(0, 200000); // Use a large context window
+
+    const prompt = `From the book "${book.title}", analyze the provided text to create a profile for the character: "${characterName}".
+
+## Full Book Text (excerpt):
+${contextText}
+`;
 
     try {
         const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Based on the provided book context, create a character profile for ${characterName}. \n\nCONTEXT: ${bookContext}`,
+            contents: prompt,
             config: {
+                systemInstruction: systemInstruction,
                 responseMimeType: 'application/json',
                 responseSchema: characterProfileSchema,
             },
@@ -135,6 +147,19 @@ export class GeminiService {
     } catch (error) {
         console.error(`Error generating summary for chapter "${chapterTitle}":`, error);
         throw new Error('Failed to generate chapter summary.');
+    }
+  }
+  
+  async summarizeSelection(selectedText: string, bookTitle: string): Promise<string> {
+    try {
+        const response = await this.ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Concisely summarize the following text selection from the book "${bookTitle}". The summary should be 1-2 sentences long, capturing the main point of the selection.\n\nTEXT:\n${selectedText}`,
+        });
+        return response.text;
+    } catch (error) {
+        console.error(`Error generating summary for selection:`, error);
+        throw new Error('Failed to generate summary for the selection.');
     }
   }
 

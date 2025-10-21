@@ -3,6 +3,10 @@ import { Component, ChangeDetectionStrategy, signal, inject, output } from '@ang
 import { GeminiService } from '../../services/gemini.service';
 import { Book } from '../../models/ebook.model';
 
+declare const pdfjsLib: any;
+declare const ePub: any;
+declare const mammoth: any;
+
 @Component({
   selector: 'app-book-loader',
   template: `
@@ -16,10 +20,10 @@ import { Book } from '../../models/ebook.model';
         } @else {
           <div class="text-center">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">AI-Powered eBook Reader</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">Upload a plain text (.txt) file of a book to begin.</p>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Upload a book to begin. Supported formats: .txt, .pdf, .epub, .docx</p>
           </div>
           <div class="flex items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-            <input type="file" id="file-upload" class="hidden" (change)="onFileSelected($event)" accept=".txt">
+            <input type="file" id="file-upload" class="hidden" (change)="onFileSelected($event)" accept=".txt,.pdf,.epub,.docx">
             <label for="file-upload" class="flex flex-col items-center space-y-2 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -35,7 +39,7 @@ import { Book } from '../../models/ebook.model';
           }
            <div class="mt-4 text-sm text-center text-gray-500 dark:text-gray-400">
               <p>For best results, use a public domain book from sources like <a href="https://www.gutenberg.org/" target="_blank" class="text-blue-500 hover:underline">Project Gutenberg</a>.</p>
-              <p class="mt-2">Note: The AI will process the first ~30,000 characters to structure the book.</p>
+              <p class="mt-2">Note: Processing an entire book may take a minute or two.</p>
           </div>
         }
       </div>
@@ -61,6 +65,13 @@ export class BookLoaderComponent {
 
   private geminiService = inject(GeminiService);
 
+  constructor() {
+    // FIX: Set the worker source for pdf.js to avoid errors.
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.mjs`;
+    }
+  }
+
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) {
@@ -68,17 +79,34 @@ export class BookLoaderComponent {
     }
 
     const file = input.files[0];
-    if (file.type !== 'text/plain') {
-      this.errorMessage.set('Please upload a valid .txt file.');
-      return;
-    }
-
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    
     this.isLoading.set(true);
     this.errorMessage.set(null);
     this.loadingMessage.set('Reading file content...');
 
     try {
-      const textContent = await file.text();
+      let textContent = '';
+      switch (extension) {
+        case 'txt':
+          textContent = await file.text();
+          break;
+        case 'pdf':
+          this.loadingMessage.set('Parsing PDF file...');
+          textContent = await this.parsePdf(file);
+          break;
+        case 'epub':
+          this.loadingMessage.set('Parsing EPUB file...');
+          textContent = await this.parseEpub(file);
+          break;
+        case 'docx':
+           this.loadingMessage.set('Parsing DOCX file...');
+          textContent = await this.parseDocx(file);
+          break;
+        default:
+          throw new Error(`Unsupported file type: .${extension}. Please upload a .txt, .pdf, .epub, or .docx file.`);
+      }
+
       this.loadingMessage.set('Analyzing book structure with AI...');
       
       const book = await this.geminiService.structureBookFromText(textContent);
@@ -92,5 +120,41 @@ export class BookLoaderComponent {
       this.isLoading.set(false);
       this.loadingMessage.set('');
     }
+  }
+
+  private async parsePdf(file: File): Promise<string> {
+    const arrayBuffer = await file.arrayBuffer();
+    // Use the globally available pdfjsLib
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map((item: any) => item.str).join(' ');
+        text += '\n\n'; // Add separation between pages
+    }
+    return text;
+  }
+
+  private async parseEpub(file: File): Promise<string> {
+      const arrayBuffer = await file.arrayBuffer();
+      const book = ePub(arrayBuffer);
+      const allContent = await Promise.all(
+        book.spine.spineItems.map(async (item: any) => {
+          const section = await book.section(item.index);
+          const doc = await section.load();
+          // Remove HTML tags to get plain text
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = doc.body.innerHTML;
+          return tempDiv.textContent || tempDiv.innerText || '';
+        })
+      );
+      return allContent.join('\n\n');
+  }
+
+  private async parseDocx(file: File): Promise<string> {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return result.value;
   }
 }

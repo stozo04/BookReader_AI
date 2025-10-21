@@ -148,10 +148,17 @@ import { InteractionState } from '../../models/ebook.model';
         <div class="absolute z-40 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex space-x-2"
              [style.top.px]="selectionRect()?.top - 50" 
              [style.left.px]="selectionRect()?.left + (selectionRect()?.width / 2) - 130">
-             <button (click)="getDefinition(selectedText())" class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Define</button>
-             <button (click)="viewCharacter(selectedText())" class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Character</button>
-             <button (click)="generateScene(selectedText())" class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Visualize</button>
-             <button (click)="getSummary()" class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Summary</button>
+             <button (click)="getDefinition(selectedText())" 
+                     [disabled]="!canDefine()"
+                     class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">Define</button>
+             <button (click)="viewCharacter(selectedText())" 
+                     class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Character</button>
+             <button (click)="generateScene(selectedText())" 
+                     [disabled]="!canSummarizeOrVisualize()"
+                     class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">Visualize</button>
+             <button (click)="summarizeSelection(selectedText())"
+                     [disabled]="!canSummarizeOrVisualize()"
+                     class="px-3 py-1 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">Summarize</button>
         </div>
       }
 
@@ -248,11 +255,15 @@ export class EbookReaderComponent {
 
   selectedText = signal('');
   selectionRect = signal<{ top: number, left: number, width: number, height: number } | null>(null);
+  
+  wordCount = computed(() => this.selectedText().split(/\s+/).filter(Boolean).length);
+  canDefine = computed(() => this.wordCount() > 0 && this.wordCount() <= 5);
+  canSummarizeOrVisualize = computed(() => this.wordCount() > 2);
 
   modalTitle = computed(() => {
     switch(this.interactionState().type) {
       case 'character': return `Character Profile: ${this.interactionState().data?.characterName}`;
-      case 'summary': return `Chapter Summary`;
+      case 'summary': return `Summary`;
       case 'scene-image': return 'Scene Visualization';
       case 'definition': return `Definition`;
       default: return '';
@@ -264,7 +275,7 @@ export class EbookReaderComponent {
     if (selection && !selection.isCollapsed) {
       const text = selection.toString().trim();
       // Simple check to avoid activating on chapter titles etc.
-      if (text.length > 0 && text.length < 300 && (event.target as HTMLElement).nodeName === 'P') {
+      if (text.length > 0 && text.length < 500 && (event.target as HTMLElement).nodeName === 'P') {
         this.selectedText.set(text);
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
@@ -273,8 +284,10 @@ export class EbookReaderComponent {
     } else {
       // Delay clearing to allow clicks on the popover
       setTimeout(() => {
-        this.selectedText.set('');
-        this.selectionRect.set(null);
+        if (!this.interactionState().type) { // Don't clear if a modal was just opened
+            this.selectedText.set('');
+            this.selectionRect.set(null);
+        }
       }, 100);
     }
   }
@@ -286,6 +299,8 @@ export class EbookReaderComponent {
 
   closeInteraction() {
     this.interactionState.set({ type: null, data: null, loading: false, error: null, loadingMessage: '' });
+    this.selectedText.set('');
+    this.selectionRect.set(null);
   }
 
   async viewCharacter(name: string) {
@@ -319,23 +334,14 @@ export class EbookReaderComponent {
     }
   }
 
-  async getSummary() {
-    const chapter = this.progressService.currentChapter();
+  async summarizeSelection(selectedText: string) {
     const book = this.progressService.book();
-    const chapterIndex = this.progressService.currentChapterIndex();
-    if (!chapter || !book) return;
+    if (!book) return;
+
+    this.interactionState.set({ type: 'summary', data: null, loading: true, error: null, loadingMessage: 'Generating summary for selection...' });
     
-    this.interactionState.set({ type: 'summary', data: null, loading: true, error: null, loadingMessage: 'Generating chapter summary...' });
-
-    const cached = this.progressService.getSummaryFromCache(chapterIndex);
-    if (cached) {
-      this.interactionState.set({ type: 'summary', data: cached, loading: false, error: null, loadingMessage: '' });
-      return;
-    }
-
     try {
-      const summary = await this.geminiService.getChapterSummary(chapter.title, chapter.content, book.title);
-      this.progressService.saveSummaryToCache(chapterIndex, summary);
+      const summary = await this.geminiService.summarizeSelection(selectedText, book.title);
       this.interactionState.set({ type: 'summary', data: summary, loading: false, error: null, loadingMessage: '' });
     } catch (e) {
       this.interactionState.set({ type: 'summary', data: null, loading: false, error: e instanceof Error ? e.message : 'Unknown error', loadingMessage: '' });
@@ -380,12 +386,6 @@ export class EbookReaderComponent {
   }
 
   async getDefinition(word: string) {
-    // Basic validation for a single word
-    if (word.includes(' ') || word.length > 30) {
-      this.interactionState.set({ type: 'definition', data: null, loading: false, error: `Please select a single word to define.`, loadingMessage: '' });
-      return;
-    }
-
     this.interactionState.set({ type: 'definition', data: null, loading: true, error: null, loadingMessage: `Defining "${word}"...` });
 
     try {
