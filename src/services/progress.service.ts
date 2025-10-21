@@ -3,6 +3,8 @@ import { Injectable, signal, computed, effect } from '@angular/core';
 import { Book, AiCache, CharacterProfile } from '../models/ebook.model';
 
 const PROGRESS_STORAGE_KEY = 'ebook-reader-progress';
+const THEME_STORAGE_KEY = 'ebook-reader-theme';
+const FONT_SIZE_STORAGE_KEY = 'ebook-reader-font-size';
 
 interface Progress {
   book: Book;
@@ -18,6 +20,8 @@ export class ProgressService {
   currentChapterIndex = signal<number>(0);
   currentPageIndex = signal<number>(0);
   aiCache = signal<AiCache>({ characters: {}, summaries: {} });
+  theme = signal<'light' | 'dark'>('dark');
+  fontSize = signal<number>(100); // e.g., 100%
 
   currentChapter = computed(() => {
     const book = this.book();
@@ -38,6 +42,8 @@ export class ProgressService {
 
   constructor() {
     this.loadProgress();
+    this.loadTheme();
+    this.loadFontSize();
 
     // Auto-save progress whenever it changes
     effect(() => {
@@ -57,6 +63,16 @@ export class ProgressService {
         this.saveAiCache(book.title, cache);
       }
     });
+
+    // Auto-save theme whenever it changes
+    effect(() => {
+      this.saveTheme(this.theme());
+    });
+
+    // Auto-save font size whenever it changes
+    effect(() => {
+        this.saveFontSize(this.fontSize());
+    });
   }
 
   loadBook(book: Book) {
@@ -64,6 +80,18 @@ export class ProgressService {
     this.currentChapterIndex.set(0);
     this.currentPageIndex.set(0);
     this.loadAiCache(book.title);
+  }
+
+  toggleTheme() {
+    this.theme.update(current => (current === 'dark' ? 'light' : 'dark'));
+  }
+
+  increaseFontSize() {
+    this.fontSize.update(size => Math.min(150, size + 10));
+  }
+
+  decreaseFontSize() {
+    this.fontSize.update(size => Math.max(70, size - 10));
   }
 
   goToChapter(index: number) {
@@ -181,6 +209,47 @@ export class ProgressService {
     } catch (e) {
       console.error('Error loading progress from localStorage', e);
       localStorage.removeItem(PROGRESS_STORAGE_KEY);
+    }
+  }
+
+  private loadTheme() {
+    try {
+      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as 'light' | 'dark' | null;
+      if (savedTheme) {
+        this.theme.set(savedTheme);
+      }
+    } catch (e) {
+      console.error('Error loading theme from localStorage', e);
+    }
+  }
+
+  private saveTheme(theme: 'light' | 'dark') {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (e) {
+      console.error('Error saving theme to localStorage', e);
+    }
+  }
+
+  private loadFontSize() {
+    try {
+      const savedSize = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+      if (savedSize) {
+        const parsedSize = parseInt(savedSize, 10);
+        if (!isNaN(parsedSize)) {
+          this.fontSize.set(parsedSize);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading font size from localStorage', e);
+    }
+  }
+
+  private saveFontSize(size: number) {
+    try {
+      localStorage.setItem(FONT_SIZE_STORAGE_KEY, size.toString());
+    } catch (e) {
+      console.error('Error saving font size to localStorage', e);
     }
   }
 }

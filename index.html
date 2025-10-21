@@ -5,22 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI E-Book Interactor</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Configure Tailwind to use class-based dark mode
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.mjs" type="module"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.0/mammoth.browser.min.js"></script>
   <style>
     /* Custom scrollbar for a better reading experience */
+    /* Light mode scrollbar (default) */
     ::-webkit-scrollbar {
       width: 8px;
     }
     ::-webkit-scrollbar-track {
-      background: #1a202c; /* dark-gray-800 */
+      background: #f1f5f9; /* slate-100 */
     }
     ::-webkit-scrollbar-thumb {
-      background: #4a5568; /* dark-gray-600 */
+      background: #cbd5e1; /* slate-300 */
       border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8; /* slate-400 */
+    }
+
+    /* Dark mode scrollbar */
+    .dark::-webkit-scrollbar-track {
+      background: #1a202c; /* dark-gray-800 */
+    }
+    .dark::-webkit-scrollbar-thumb {
+      background: #4a5568; /* dark-gray-600 */
+    }
+    .dark::-webkit-scrollbar-thumb:hover {
       background: #718096; /* dark-gray-500 */
     }
   </style>
@@ -43,7 +61,7 @@
 }
 </script>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans">
+<body class="font-sans">
   <app-root></app-root>
 </body>
 </html>
