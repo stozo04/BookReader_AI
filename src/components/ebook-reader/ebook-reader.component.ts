@@ -1,5 +1,5 @@
 // FIX: Implemented the EbookReaderComponent which was previously a placeholder.
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, viewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { ProgressService } from '../../services/progress.service';
 import { GeminiService } from '../../services/gemini.service';
 import { InteractionState } from '../../models/ebook.model';
@@ -120,14 +120,12 @@ import { InteractionState } from '../../models/ebook.model';
         </div>
 
         <!-- Chapter Content -->
-        <main #mainContent class="flex-1 p-6 md:p-10 lg:p-12 overflow-y-auto" (mouseup)="onTextSelection($event)">
+        <main class="flex-1 p-6 md:p-10 lg:p-12 overflow-y-hidden">
           @if (progressService.currentChapter(); as chapter) {
-            <div class="max-w-3xl mx-auto">
-              <h2 class="text-3xl font-bold mb-6 text-center">{{ chapter.title }}</h2>
-              <div class="prose dark:prose-invert max-w-none text-lg leading-relaxed space-y-4">
-                @for (paragraph of chapter.content.split('\\n'); track $index) {
-                   <p>{{ paragraph }}</p>
-                }
+            <div class="max-w-3xl mx-auto h-full flex flex-col">
+              <h2 class="text-3xl font-bold mb-6 text-center flex-shrink-0">{{ chapter.title }}</h2>
+              <div #pageContainer class="prose dark:prose-invert max-w-none text-lg leading-relaxed flex-grow overflow-hidden">
+                 <div class="whitespace-pre-wrap h-full" (mouseup)="onTextSelection($event)">{{ currentPageContent() }}</div>
               </div>
             </div>
           }
@@ -135,11 +133,13 @@ import { InteractionState } from '../../models/ebook.model';
 
         <!-- Footer Navigation -->
         <footer class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow-inner">
-          <button (click)="progressService.previousChapter()" [disabled]="progressService.currentChapterIndex() === 0" class="px-4 py-2 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700">Previous</button>
+          <button (click)="previousPage()" [disabled]="isFirstPageOfBook()" class="px-4 py-2 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700">Previous</button>
           <div class="text-sm text-gray-600 dark:text-gray-400">
-            Chapter {{ progressService.currentChapterIndex() + 1 }} of {{ progressService.book()?.chapters.length }}
+             @if(pages().length > 0) {
+              <span>Page {{ progressService.currentPageIndex() + 1 }} of {{ pages().length }}</span>
+             }
           </div>
-          <button (click)="progressService.nextChapter()" [disabled]="progressService.currentChapterIndex() === (progressService.book()?.chapters.length || 0) - 1" class="px-4 py-2 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700">Next</button>
+          <button (click)="nextPage()" [disabled]="isLastPageOfBook()" class="px-4 py-2 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700">Next</button>
         </footer>
       </div>
 
@@ -244,7 +244,7 @@ import { InteractionState } from '../../models/ebook.model';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class EbookReaderComponent {
+export class EbookReaderComponent implements AfterViewInit, OnDestroy {
   progressService = inject(ProgressService);
   geminiService = inject(GeminiService);
 
@@ -255,6 +255,22 @@ export class EbookReaderComponent {
 
   selectedText = signal('');
   selectionRect = signal<{ top: number, left: number, width: number, height: number } | null>(null);
+  
+  // Pagination state
+  pageContainer = viewChild<ElementRef<HTMLDivElement>>('pageContainer');
+  pages = signal<string[]>([]);
+  private resizeObserver: ResizeObserver | null = null;
+  private goingToLastPage = signal(false);
+
+  currentPageContent = computed(() => this.pages()[this.progressService.currentPageIndex()] || '');
+  isFirstPageOfBook = computed(() => this.progressService.currentChapterIndex() === 0 && this.progressService.currentPageIndex() === 0);
+  isLastPageOfBook = computed(() => {
+    const book = this.progressService.book();
+    if (!book) return true;
+    const isLastChapter = this.progressService.currentChapterIndex() === book.chapters.length - 1;
+    const isLastPage = this.progressService.currentPageIndex() === this.pages().length - 1;
+    return isLastChapter && isLastPage;
+  });
   
   wordCount = computed(() => this.selectedText().split(/\s+/).filter(Boolean).length);
   canDefine = computed(() => this.wordCount() > 0 && this.wordCount() <= 5);
@@ -270,21 +286,121 @@ export class EbookReaderComponent {
     }
   });
 
+  constructor() {
+    effect(() => {
+        // Repaginate when the current chapter changes.
+        this.progressService.currentChapter(); 
+        this.paginate();
+    });
+
+    effect(() => {
+        // Effect to handle jumping to the last page of a chapter.
+        if (this.goingToLastPage() && this.pages().length > 0) {
+            this.progressService.goToPage(this.pages().length - 1);
+            this.goingToLastPage.set(false);
+        }
+    });
+  }
+
+  ngAfterViewInit() {
+    this.setupResizeObserver();
+  }
+
+  ngOnDestroy() {
+    this.resizeObserver?.disconnect();
+  }
+
+  private setupResizeObserver() {
+    const container = this.pageContainer();
+    if (container) {
+      this.resizeObserver = new ResizeObserver(() => this.paginate());
+      this.resizeObserver.observe(container.nativeElement);
+    }
+  }
+
+  private paginate() {
+    const container = this.pageContainer()?.nativeElement;
+    const content = this.progressService.currentChapter()?.content;
+
+    if (!container || !content || container.clientHeight === 0) {
+      this.pages.set([]);
+      return;
+    }
+
+    const style = window.getComputedStyle(container);
+    const containerHeight = container.clientHeight;
+
+    const measurer = document.createElement('div');
+    measurer.style.width = `${container.clientWidth}px`;
+    measurer.style.font = style.font;
+    measurer.style.lineHeight = style.lineHeight;
+    measurer.style.textAlign = style.textAlign;
+    measurer.style.visibility = 'hidden';
+    measurer.style.position = 'absolute';
+    measurer.style.whiteSpace = 'pre-wrap';
+    measurer.style.wordBreak = 'break-word';
+
+    document.body.appendChild(measurer);
+
+    const pagesResult: string[] = [];
+    const tokens = content.split(/(\s+)/);
+    let currentPageTokens: string[] = [];
+
+    for (const token of tokens) {
+        measurer.textContent = [...currentPageTokens, token].join('');
+        if (measurer.scrollHeight > containerHeight) {
+            pagesResult.push(currentPageTokens.join(''));
+            currentPageTokens = [token];
+        } else {
+            currentPageTokens.push(token);
+        }
+    }
+
+    if (currentPageTokens.length > 0) {
+        pagesResult.push(currentPageTokens.join(''));
+    }
+
+    document.body.removeChild(measurer);
+    this.pages.set(pagesResult);
+
+    // Ensure current page index is valid after repagination
+    if (this.progressService.currentPageIndex() >= pagesResult.length) {
+        this.progressService.goToPage(pagesResult.length > 0 ? pagesResult.length - 1 : 0);
+    }
+  }
+
+  nextPage() {
+    const currentPage = this.progressService.currentPageIndex();
+    if (currentPage < this.pages().length - 1) {
+        this.progressService.goToPage(currentPage + 1);
+    } else {
+        this.progressService.nextChapter();
+    }
+  }
+
+  previousPage() {
+    const currentPage = this.progressService.currentPageIndex();
+    if (currentPage > 0) {
+        this.progressService.goToPage(currentPage - 1);
+    } else if (this.progressService.currentChapterIndex() > 0) {
+        this.goingToLastPage.set(true);
+        this.progressService.previousChapter();
+    }
+  }
+
   onTextSelection(event: MouseEvent) {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
       const text = selection.toString().trim();
-      // Simple check to avoid activating on chapter titles etc.
-      if (text.length > 0 && text.length < 500 && (event.target as HTMLElement).nodeName === 'P') {
+      if (text.length > 0 && text.length < 500) {
         this.selectedText.set(text);
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         this.selectionRect.set({ top: rect.top + window.scrollY, left: rect.left + window.scrollX, width: rect.width, height: rect.height });
       }
     } else {
-      // Delay clearing to allow clicks on the popover
       setTimeout(() => {
-        if (!this.interactionState().type) { // Don't clear if a modal was just opened
+        if (!this.interactionState().type) { 
             this.selectedText.set('');
             this.selectionRect.set(null);
         }
@@ -307,7 +423,6 @@ export class EbookReaderComponent {
     const book = this.progressService.book();
     if (!book) return;
 
-    // Check if the selected text is a known character
     const characterName = book.characters.find(c => c.toLowerCase() === name.toLowerCase());
     if (!characterName) {
         this.interactionState.set({ type: 'character', data: null, loading: false, error: `"${name}" is not recognized as a main character.`, loadingMessage: '' });
@@ -325,7 +440,11 @@ export class EbookReaderComponent {
     try {
       const profile = await this.geminiService.getCharacterProfile(characterName, book);
       this.interactionState.update(s => ({...s, loadingMessage: 'Generating character image...'}));
-      const imageUrl = await this.geminiService.generateCharacterImage(characterName, profile.physicalAppearance, book.title);
+      
+      let imageUrl = '';
+      if (profile.physicalAppearance) {
+        imageUrl = await this.geminiService.generateCharacterImage(characterName, profile.physicalAppearance, book.title);
+      }
       
       this.progressService.saveCharacterProfileToCache(characterName, { profile, imageUrl });
       this.interactionState.set({ type: 'character', data: { characterName, profile, imageUrl }, loading: false, error: null, loadingMessage: '' });

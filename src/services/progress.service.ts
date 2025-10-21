@@ -7,6 +7,7 @@ const PROGRESS_STORAGE_KEY = 'ebook-reader-progress';
 interface Progress {
   book: Book;
   currentChapterIndex: number;
+  currentPageIndex: number;
 }
 
 @Injectable({
@@ -15,6 +16,7 @@ interface Progress {
 export class ProgressService {
   book = signal<Book | null>(null);
   currentChapterIndex = signal<number>(0);
+  currentPageIndex = signal<number>(0);
   aiCache = signal<AiCache>({ characters: {}, summaries: {} });
 
   currentChapter = computed(() => {
@@ -41,8 +43,9 @@ export class ProgressService {
     effect(() => {
       const book = this.book();
       const chapterIndex = this.currentChapterIndex();
+      const pageIndex = this.currentPageIndex();
       if (book) {
-        this.saveProgress(book, chapterIndex);
+        this.saveProgress(book, chapterIndex, pageIndex);
       }
     });
 
@@ -59,6 +62,7 @@ export class ProgressService {
   loadBook(book: Book) {
     this.book.set(book);
     this.currentChapterIndex.set(0);
+    this.currentPageIndex.set(0);
     this.loadAiCache(book.title);
   }
 
@@ -66,19 +70,26 @@ export class ProgressService {
     const book = this.book();
     if (book && index >= 0 && index < book.chapters.length) {
       this.currentChapterIndex.set(index);
+      this.currentPageIndex.set(0); // Reset to first page of new chapter
     }
+  }
+
+  goToPage(index: number) {
+    this.currentPageIndex.set(index);
   }
 
   nextChapter() {
     const book = this.book();
     if (book && this.currentChapterIndex() < book.chapters.length - 1) {
       this.currentChapterIndex.update(i => i + 1);
+      this.currentPageIndex.set(0);
     }
   }
 
   previousChapter() {
     if (this.currentChapterIndex() > 0) {
       this.currentChapterIndex.update(i => i - 1);
+      // The component will handle setting the page to the last one.
     }
   }
 
@@ -90,6 +101,7 @@ export class ProgressService {
     localStorage.removeItem(PROGRESS_STORAGE_KEY);
     this.book.set(null);
     this.currentChapterIndex.set(0);
+    this.currentPageIndex.set(0);
     this.aiCache.set({ characters: {}, summaries: {} });
   }
 
@@ -145,9 +157,9 @@ export class ProgressService {
     }
   }
 
-  private saveProgress(book: Book, chapterIndex: number) {
+  private saveProgress(book: Book, chapterIndex: number, pageIndex: number) {
     try {
-      const progress: Progress = { book, currentChapterIndex: chapterIndex };
+      const progress: Progress = { book, currentChapterIndex: chapterIndex, currentPageIndex: pageIndex };
       localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
     } catch (e) {
       console.error('Error saving progress to localStorage', e);
@@ -161,6 +173,7 @@ export class ProgressService {
         const progress: Progress = JSON.parse(savedProgress);
         this.book.set(progress.book);
         this.currentChapterIndex.set(progress.currentChapterIndex);
+        this.currentPageIndex.set(progress.currentPageIndex || 0);
         if (progress.book?.title) {
             this.loadAiCache(progress.book.title);
         }
