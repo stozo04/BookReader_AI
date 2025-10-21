@@ -15,151 +15,189 @@ type SidebarView = {
   template: `
     <div class="flex h-screen font-sans bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <!-- Left Sidebar -->
-      <aside class="w-96 h-full border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col shadow-lg">
+      <aside 
+        class="h-full border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col shadow-lg transition-all duration-300 ease-in-out"
+        [class.w-96]="!isSidebarCollapsed()"
+        [class.w-20]="isSidebarCollapsed()">
         <!-- Sidebar Header -->
-        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h1 class="text-xl font-bold truncate">{{ progressService.book()?.title }}</h1>
-          <h2 class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ progressService.book()?.author }}</h2>
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          @if (!isSidebarCollapsed()) {
+            <h1 class="text-xl font-bold truncate">{{ progressService.book()?.title }}</h1>
+            <h2 class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ progressService.book()?.author }}</h2>
+          } @else {
+            <div class="flex justify-center items-center h-full">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-500">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+          }
         </div>
 
         <!-- Sidebar Content -->
         <div class="flex-1 flex flex-col overflow-y-auto">
-          @if (sidebarView().type !== 'list') {
-            <!-- Detail View (Character Profile, Summary, etc.) -->
-            <div class="flex-1 flex flex-col">
-              <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-                <button (click)="sidebarView.set({type: 'list'})" class="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                  Back
-                </button>
-              </div>
-              <div class="p-6 flex-1">
-                @if (sidebarState().loading) {
-                  <div class="flex flex-col items-center justify-center h-full">
-                    <div class="w-12 h-12 border-4 border-blue-500 border-solid rounded-full animate-spin border-t-transparent"></div>
-                    <p class="mt-4 text-gray-600 dark:text-gray-400">{{ sidebarState().loadingMessage }}</p>
-                  </div>
-                } @else if (sidebarState().error) {
-                  <div class="p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
-                    <span class="font-medium">Error:</span> {{ sidebarState().error }}
-                  </div>
-                } @else {
-                  @switch (sidebarView().type) {
-                    @case ('character_profile') {
-                      <div class="space-y-4">
-                        @if(sidebarView().data.imageUrl) {
-                            <img [src]="sidebarView().data.imageUrl" alt="Image of {{ sidebarView().data.profile.characterName }}" width="300" height="300" class="rounded-lg mx-auto shadow-md">
-                        }
-                        <div>
-                          <h4 class="font-semibold text-lg">{{ sidebarView().data.profile.characterName }}</h4>
-                          <p class="mt-1 text-gray-600 dark:text-gray-300">{{ sidebarView().data.profile.description }}</p>
-                        </div>
-                        <div>
-                          <h4 class="font-semibold text-lg">Physical Appearance</h4>
-                          <p class="mt-1 text-gray-600 dark:text-gray-300">{{ sidebarView().data.profile.physicalAppearance || 'Not described.' }}</p>
-                        </div>
-                        @if (sidebarView().data.profile.relationships?.length > 0) {
-                          <div>
-                            <h4 class="font-semibold text-lg">Relationships</h4>
-                            <ul class="mt-1 list-disc list-inside space-y-1">
-                              @for (rel of sidebarView().data.profile.relationships; track rel.characterName) {
-                                <li><strong>{{ rel.characterName }}:</strong> {{ rel.relationshipType }}</li>
-                              }
-                            </ul>
-                          </div>
-                        }
-                      </div>
-                    }
-                    @case ('selection_summary') {
-                      <div>
-                        <h4 class="font-semibold text-lg mb-2">Summary</h4>
-                        <p class="text-gray-600 dark:text-gray-300">{{ sidebarView().data }}</p>
-                      </div>
-                    }
-                    @case ('scene_image') {
-                      <div class="space-y-4">
-                        <h4 class="font-semibold text-lg mb-2">Scene Visualization</h4>
-                        <img [src]="sidebarView().data" alt="Generated scene image" class="rounded-lg shadow-md w-full">
-                      </div>
-                    }
-                     @case ('definition') {
-                      <div>
-                          <h4 class="font-semibold text-lg mb-2">Definition</h4>
-                          <p class="text-gray-600 dark:text-gray-300">{{ sidebarView().data }}</p>
-                      </div>
-                    }
-                  }
-                }
-              </div>
-            </div>
-          } @else {
-            <!-- Tabbed List View -->
-            <div class="flex-1 flex flex-col overflow-hidden">
-              <nav class="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
-                <button (click)="activeTab.set('chapters')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'chapters'" [class.border-blue-500]="activeTab() === 'chapters'" [class.text-blue-600]="activeTab() === 'chapters'" [class.dark:text-blue-400]="activeTab() === 'chapters'" [class.text-gray-500]="activeTab() !== 'chapters'" [class.hover:bg-gray-100]="activeTab() !== 'chapters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'chapters'">Chapters</button>
-                <button (click)="activeTab.set('characters')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'characters'" [class.border-blue-500]="activeTab() === 'characters'" [class.text-blue-600]="activeTab() === 'characters'" [class.dark:text-blue-400]="activeTab() === 'characters'" [class.text-gray-500]="activeTab() !== 'characters'" [class.hover:bg-gray-100]="activeTab() !== 'characters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'characters'">Characters</button>
-                <button (click)="activeTab.set('summaries')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'summaries'" [class.border-blue-500]="activeTab() === 'summaries'" [class.text-blue-600]="activeTab() === 'summaries'" [class.dark:text-blue-400]="activeTab() === 'summaries'" [class.text-gray-500]="activeTab() !== 'summaries'" [class.hover:bg-gray-100]="activeTab() !== 'summaries'" [class.dark:hover:bg-gray-700]="activeTab() !== 'summaries'">Summaries</button>
-              </nav>
-              <div class="flex-1 overflow-y-auto p-2">
-                @switch (activeTab()) {
-                  @case ('chapters') {
-                    <ol class="space-y-1">
-                      @for (chapter of progressService.book()?.chapters; track chapter.title; let i = $index) {
-                        <li>
-                          <button (click)="goToChapter(i)" class="w-full text-left p-2 rounded-md transition-colors" [class.bg-blue-100]="i === progressService.currentChapterIndex()" [class.dark:bg-blue-900]="i === progressService.currentChapterIndex()" [class.hover:bg-gray-100]="i !== progressService.currentChapterIndex()" [class.dark:hover:bg-gray-700]="i !== progressService.currentChapterIndex()">
-                            <span class="font-semibold">Chapter {{ i + 1 }}</span>
-                            <span class="block text-sm text-gray-600 dark:text-gray-400 truncate">{{ chapter.title }}</span>
-                          </button>
-                        </li>
-                      }
-                    </ol>
-                  }
-                  @case ('characters') {
-                    <ul class="space-y-1">
-                      @for (character of progressService.book()?.characters; track character) {
-                        <li>
-                          <button (click)="showCharacterProfile(character)" class="w-full text-left p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            {{ character }}
-                          </button>
-                        </li>
-                      }
-                    </ul>
-                  }
-                  @case ('summaries') {
-                    <div class="space-y-2">
-                       @for (chapter of progressService.book()?.chapters; track chapter.title; let i = $index) {
-                         <div class="rounded-md border border-gray-200 dark:border-gray-700">
-                           <button (click)="toggleSummary(i)" class="w-full flex justify-between items-center p-3 text-left">
-                              <span class="font-medium">Chapter {{ i + 1 }}: {{ chapter.title }}</span>
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform" [class.rotate-180]="expandedSummaryIndex() === i" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                           </button>
-                           @if (expandedSummaryIndex() === i) {
-                             <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-                                @if (summaryStates()[i]?.loading) {
-                                  <p class="text-sm text-gray-500">Generating summary...</p>
-                                } @else if (summaryStates()[i]?.error) {
-                                  <p class="text-sm text-red-500">{{ summaryStates()[i]?.error }}</p>
-                                } @else if (summaryStates()[i]?.summary) {
-                                  <p class="text-sm text-gray-600 dark:text-gray-300">{{ summaryStates()[i]?.summary }}</p>
-                                }
-                             </div>
-                           }
-                         </div>
-                       }
+          @if (!isSidebarCollapsed()) {
+            @if (sidebarView().type !== 'list') {
+              <!-- Detail View (Character Profile, Summary, etc.) -->
+              <div class="flex-1 flex flex-col">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <button (click)="sidebarView.set({type: 'list'})" class="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    Back
+                  </button>
+                </div>
+                <div class="p-6 flex-1">
+                  @if (sidebarState().loading) {
+                    <div class="flex flex-col items-center justify-center h-full">
+                      <div class="w-12 h-12 border-4 border-blue-500 border-solid rounded-full animate-spin border-t-transparent"></div>
+                      <p class="mt-4 text-gray-600 dark:text-gray-400">{{ sidebarState().loadingMessage }}</p>
                     </div>
+                  } @else if (sidebarState().error) {
+                    <div class="p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+                      <span class="font-medium">Error:</span> {{ sidebarState().error }}
+                    </div>
+                  } @else {
+                    @switch (sidebarView().type) {
+                      @case ('character_profile') {
+                        <div class="space-y-4">
+                          @if(sidebarView().data.imageUrl) {
+                              <img [src]="sidebarView().data.imageUrl" alt="Image of {{ sidebarView().data.profile.characterName }}" width="300" height="300" class="rounded-lg mx-auto shadow-md">
+                          }
+                          <div>
+                            <h4 class="font-semibold text-lg">{{ sidebarView().data.profile.characterName }}</h4>
+                            <p class="mt-1 text-gray-600 dark:text-gray-300">{{ sidebarView().data.profile.description }}</p>
+                          </div>
+                          <div>
+                            <h4 class="font-semibold text-lg">Physical Appearance</h4>
+                            <p class="mt-1 text-gray-600 dark:text-gray-300">{{ sidebarView().data.profile.physicalAppearance || 'Not described.' }}</p>
+                          </div>
+                          @if (sidebarView().data.profile.relationships?.length > 0) {
+                            <div>
+                              <h4 class="font-semibold text-lg">Relationships</h4>
+                              <ul class="mt-1 list-disc list-inside space-y-1">
+                                @for (rel of sidebarView().data.profile.relationships; track rel.characterName) {
+                                  <li><strong>{{ rel.characterName }}:</strong> {{ rel.relationshipType }}</li>
+                                }
+                              </ul>
+                            </div>
+                          }
+                        </div>
+                      }
+                      @case ('selection_summary') {
+                        <div>
+                          <h4 class="font-semibold text-lg mb-2">Summary</h4>
+                          <p class="text-gray-600 dark:text-gray-300">{{ sidebarView().data }}</p>
+                        </div>
+                      }
+                      @case ('scene_image') {
+                        <div class="space-y-4">
+                          <h4 class="font-semibold text-lg mb-2">Scene Visualization</h4>
+                          <img [src]="sidebarView().data" alt="Generated scene image" class="rounded-lg shadow-md w-full">
+                        </div>
+                      }
+                       @case ('definition') {
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">Definition</h4>
+                            <p class="text-gray-600 dark:text-gray-300">{{ sidebarView().data }}</p>
+                        </div>
+                      }
+                    }
                   }
-                }
+                </div>
               </div>
+            } @else {
+              <!-- Tabbed List View -->
+              <div class="flex-1 flex flex-col overflow-hidden">
+                <nav class="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
+                  <button (click)="activeTab.set('chapters')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'chapters'" [class.border-blue-500]="activeTab() === 'chapters'" [class.text-blue-600]="activeTab() === 'chapters'" [class.dark:text-blue-400]="activeTab() === 'chapters'" [class.text-gray-500]="activeTab() !== 'chapters'" [class.hover:bg-gray-100]="activeTab() !== 'chapters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'chapters'">Chapters</button>
+                  <button (click)="activeTab.set('characters')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'characters'" [class.border-blue-500]="activeTab() === 'characters'" [class.text-blue-600]="activeTab() === 'characters'" [class.dark:text-blue-400]="activeTab() === 'characters'" [class.text-gray-500]="activeTab() !== 'characters'" [class.hover:bg-gray-100]="activeTab() !== 'characters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'characters'">Characters</button>
+                  <button (click)="activeTab.set('summaries')" class="flex-1 p-3 text-sm font-medium text-center transition-colors" [class.border-b-2]="activeTab() === 'summaries'" [class.border-blue-500]="activeTab() === 'summaries'" [class.text-blue-600]="activeTab() === 'summaries'" [class.dark:text-blue-400]="activeTab() === 'summaries'" [class.text-gray-500]="activeTab() !== 'summaries'" [class.hover:bg-gray-100]="activeTab() !== 'summaries'" [class.dark:hover:bg-gray-700]="activeTab() !== 'summaries'">Summaries</button>
+                </nav>
+                <div class="flex-1 overflow-y-auto p-2">
+                  @switch (activeTab()) {
+                    @case ('chapters') {
+                      <ol class="space-y-1">
+                        @for (chapter of progressService.book()?.chapters; track chapter.title; let i = $index) {
+                          <li>
+                            <button (click)="goToChapter(i)" class="w-full text-left p-2 rounded-md transition-colors" [class.bg-blue-100]="i === progressService.currentChapterIndex()" [class.dark:bg-blue-900]="i === progressService.currentChapterIndex()" [class.hover:bg-gray-100]="i !== progressService.currentChapterIndex()" [class.dark:hover:bg-gray-700]="i !== progressService.currentChapterIndex()">
+                              <span class="font-semibold">Chapter {{ i + 1 }}</span>
+                              <span class="block text-sm text-gray-600 dark:text-gray-400 truncate">{{ chapter.title }}</span>
+                            </button>
+                          </li>
+                        }
+                      </ol>
+                    }
+                    @case ('characters') {
+                      <ul class="space-y-1">
+                        @for (character of progressService.book()?.characters; track character) {
+                          <li>
+                            <button (click)="showCharacterProfile(character)" class="w-full text-left p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                              {{ character }}
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                    @case ('summaries') {
+                      <div class="space-y-2">
+                         @for (chapter of progressService.book()?.chapters; track chapter.title; let i = $index) {
+                           <div class="rounded-md border border-gray-200 dark:border-gray-700">
+                             <button (click)="toggleSummary(i)" class="w-full flex justify-between items-center p-3 text-left">
+                                <span class="font-medium">Chapter {{ i + 1 }}: {{ chapter.title }}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform" [class.rotate-180]="expandedSummaryIndex() === i" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                             </button>
+                             @if (expandedSummaryIndex() === i) {
+                               <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                                  @if (summaryStates()[i]?.loading) {
+                                    <p class="text-sm text-gray-500">Generating summary...</p>
+                                  } @else if (summaryStates()[i]?.error) {
+                                    <p class="text-sm text-red-500">{{ summaryStates()[i]?.error }}</p>
+                                  } @else if (summaryStates()[i]?.summary) {
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ summaryStates()[i]?.summary }}</p>
+                                  }
+                               </div>
+                             }
+                           </div>
+                         }
+                      </div>
+                    }
+                  }
+                </div>
+              </div>
+            }
+          } @else {
+            <!-- Collapsed View -->
+            <div class="flex-1 flex flex-col items-center space-y-4 py-4">
+              <button (click)="setActiveTab('chapters')" class="p-3 rounded-lg transition-colors" [class.bg-blue-100]="activeTab() === 'chapters'" [class.dark:bg-blue-900]="activeTab() === 'chapters'" [class.hover:bg-gray-100]="activeTab() !== 'chapters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'chapters'" title="Chapters">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+              </button>
+              <button (click)="setActiveTab('characters')" class="p-3 rounded-lg transition-colors" [class.bg-blue-100]="activeTab() === 'characters'" [class.dark:bg-blue-900]="activeTab() === 'characters'" [class.hover:bg-gray-100]="activeTab() !== 'characters'" [class.dark:hover:bg-gray-700]="activeTab() !== 'characters'" title="Characters">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+              </button>
+              <button (click)="setActiveTab('summaries')" class="p-3 rounded-lg transition-colors" [class.bg-blue-100]="activeTab() === 'summaries'" [class.dark:bg-blue-900]="activeTab() === 'summaries'" [class.hover:bg-gray-100]="activeTab() !== 'summaries'" [class.dark:hover:bg-gray-700]="activeTab() !== 'summaries'" title="Summaries">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+              </button>
             </div>
           }
         </div>
 
         <!-- Sidebar Footer -->
         <div class="p-4 border-t border-gray-200 dark:border-gray-700 mt-auto shrink-0">
-          <button (click)="isSettingsOpen.set(true)" class="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            <span>Settings</span>
-          </button>
+          <div class="space-y-2">
+            <button (click)="isSettingsOpen.set(true)" title="Settings" class="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              @if (!isSidebarCollapsed()) {
+                <span>Settings</span>
+              }
+            </button>
+            <button (click)="toggleSidebar()" title="{{ isSidebarCollapsed() ? 'Expand' : 'Collapse' }}" class="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              @if (isSidebarCollapsed()) {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+                <span>Collapse</span>
+              }
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -295,6 +333,7 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
 
   // UI State
   isSettingsOpen = signal(false);
+  isSidebarCollapsed = signal(false);
   activeTab = signal<'chapters' | 'characters' | 'summaries'>('chapters');
   sidebarView = signal<SidebarView>({ type: 'list' });
   sidebarState = signal({ loading: false, error: null as string | null, loadingMessage: '' });
@@ -371,6 +410,17 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
       }
   }
 
+  toggleSidebar() {
+    this.isSidebarCollapsed.update(collapsed => !collapsed);
+  }
+
+  setActiveTab(tab: 'chapters' | 'characters' | 'summaries') {
+    this.activeTab.set(tab);
+    if (this.sidebarView().type !== 'list') {
+      this.sidebarView.set({ type: 'list' });
+    }
+  }
+
   goToChapter(index: number) {
     this.progressService.goToChapter(index);
     this.sidebarView.set({ type: 'list' });
@@ -391,6 +441,11 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
   }
 
   async showCharacterProfile(characterName: string) {
+    if (this.isSidebarCollapsed()) {
+      this.isSidebarCollapsed.set(false);
+      // Give sidebar time to expand before showing profile
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
     this.sidebarView.set({ type: 'character_profile' });
     this.sidebarState.set({ loading: true, error: null, loadingMessage: `Generating profile for ${characterName}...` });
     
@@ -442,6 +497,11 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
     const bookTitle = this.progressService.book()?.title || 'this book';
     this.selection.set({ text: '', x: 0, y: 0 }); // Hide popover
 
+    if (this.isSidebarCollapsed()) {
+      this.isSidebarCollapsed.set(false);
+      // Give sidebar time to expand before showing action result
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
     this.sidebarView.set({ type: action });
     this.sidebarState.set({ loading: true, error: null, loadingMessage: 'Processing selection...' });
 
