@@ -2,254 +2,160 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
 import { Book, AiCache, CharacterProfile } from '../models/ebook.model';
 
-const PROGRESS_STORAGE_KEY = 'ebook-reader-progress';
-const THEME_STORAGE_KEY = 'ebook-reader-theme';
-const FONT_SIZE_STORAGE_KEY = 'ebook-reader-font-size';
+const EBOOK_READER_STATE = 'ebook_reader_state';
 
-interface Progress {
-  book: Book;
+interface AppState {
+  book: Book | null;
   currentChapterIndex: number;
-  currentPageIndex: number;
+  fontSize: number;
+  theme: 'light' | 'dark';
+  fontFamily: string;
+  aiCache: AiCache;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProgressService {
-  book = signal<Book | null>(null);
-  currentChapterIndex = signal<number>(0);
-  currentPageIndex = signal<number>(0);
-  aiCache = signal<AiCache>({ characters: {}, summaries: {} });
-  theme = signal<'light' | 'dark'>('dark');
-  fontSize = signal<number>(100); // e.g., 100%
+  private state = signal<AppState>(this.loadState());
 
+  book = computed(() => this.state().book);
+  currentChapterIndex = computed(() => this.state().currentChapterIndex);
+  fontSize = computed(() => this.state().fontSize);
+  theme = computed(() => this.state().theme);
+  fontFamily = computed(() => this.state().fontFamily);
+  aiCache = computed(() => this.state().aiCache);
+  
   currentChapter = computed(() => {
     const book = this.book();
     const index = this.currentChapterIndex();
-    if (book && book.chapters && book.chapters[index]) {
-      return book.chapters[index];
+    if (!book || index < 0 || index >= book.chapters.length) {
+      return null;
     }
-    return null;
+    return book.chapters[index];
   });
 
-  progressPercentage = computed(() => {
-    const book = this.book();
-    if (!book || !book.chapters || book.chapters.length === 0) {
-      return 0;
-    }
-    return ((this.currentChapterIndex() + 1) / book.chapters.length) * 100;
-  });
-
+  totalChapters = computed(() => this.book()?.chapters.length ?? 0);
+  
   constructor() {
-    this.loadProgress();
-    this.loadTheme();
-    this.loadFontSize();
-
-    // Auto-save progress whenever it changes
     effect(() => {
-      const book = this.book();
-      const chapterIndex = this.currentChapterIndex();
-      const pageIndex = this.currentPageIndex();
-      if (book) {
-        this.saveProgress(book, chapterIndex, pageIndex);
+      try {
+        localStorage.setItem(EBOOK_READER_STATE, JSON.stringify(this.state()));
+      } catch (error) {
+        console.error('Could not save state to localStorage', error);
       }
-    });
-
-    // Auto-save AI cache whenever it changes
-    effect(() => {
-      const book = this.book();
-      const cache = this.aiCache();
-      if (book) {
-        this.saveAiCache(book.title, cache);
-      }
-    });
-
-    // Auto-save theme whenever it changes
-    effect(() => {
-      this.saveTheme(this.theme());
-    });
-
-    // Auto-save font size whenever it changes
-    effect(() => {
-        this.saveFontSize(this.fontSize());
     });
   }
 
   loadBook(book: Book) {
-    this.book.set(book);
-    this.currentChapterIndex.set(0);
-    this.currentPageIndex.set(0);
-    this.loadAiCache(book.title);
+    this.state.update(state => ({
+      ...state,
+      book,
+      currentChapterIndex: 0,
+      aiCache: { characters: {}, summaries: {} },
+    }));
   }
-
-  toggleTheme() {
-    this.theme.update(current => (current === 'dark' ? 'light' : 'dark'));
-  }
-
-  increaseFontSize() {
-    this.fontSize.update(size => Math.min(150, size + 10));
-  }
-
-  decreaseFontSize() {
-    this.fontSize.update(size => Math.max(70, size - 10));
-  }
-
+  
   goToChapter(index: number) {
-    const book = this.book();
-    if (book && index >= 0 && index < book.chapters.length) {
-      this.currentChapterIndex.set(index);
-      this.currentPageIndex.set(0); // Reset to first page of new chapter
+    const total = this.totalChapters();
+    if (index >= 0 && index < total) {
+      this.state.update(state => ({ ...state, currentChapterIndex: index }));
     }
-  }
-
-  goToPage(index: number) {
-    this.currentPageIndex.set(index);
   }
 
   nextChapter() {
-    const book = this.book();
-    if (book && this.currentChapterIndex() < book.chapters.length - 1) {
-      this.currentChapterIndex.update(i => i + 1);
-      this.currentPageIndex.set(0);
-    }
+    this.goToChapter(this.currentChapterIndex() + 1);
   }
 
   previousChapter() {
-    if (this.currentChapterIndex() > 0) {
-      this.currentChapterIndex.update(i => i - 1);
-      // The component will handle setting the page to the last one.
-    }
-  }
-
-  clearBook() {
-    const bookTitle = this.book()?.title;
-    if (bookTitle) {
-      localStorage.removeItem(this.getAiCacheStorageKey(bookTitle));
-    }
-    localStorage.removeItem(PROGRESS_STORAGE_KEY);
-    this.book.set(null);
-    this.currentChapterIndex.set(0);
-    this.currentPageIndex.set(0);
-    this.aiCache.set({ characters: {}, summaries: {} });
-  }
-
-  // --- Caching Methods ---
-  getCharacterProfileFromCache(name: string) {
-    return this.aiCache().characters[name];
-  }
-
-  getSummaryFromCache(index: number) {
-    return this.aiCache().summaries[index];
-  }
-
-  saveCharacterProfileToCache(name: string, data: { profile: CharacterProfile, imageUrl: string }) {
-    this.aiCache.update(cache => {
-      cache.characters[name] = data;
-      return {...cache};
-    });
-  }
-
-  saveSummaryToCache(index: number, summary: string) {
-    this.aiCache.update(cache => {
-      cache.summaries[index] = summary;
-      return {...cache};
-    });
+    this.goToChapter(this.currentChapterIndex() - 1);
   }
   
-  private getAiCacheStorageKey(bookTitle: string): string {
-    // Sanitize title to create a valid key
-    return `ebook-reader-ai-cache-${bookTitle.replace(/[^a-zA-Z0-9]/g, '-')}`;
+  increaseFontSize() {
+    this.state.update(state => ({ ...state, fontSize: Math.min(state.fontSize + 1, 32) }));
   }
 
-  private saveAiCache(bookTitle: string, cache: AiCache) {
-    try {
-      const key = this.getAiCacheStorageKey(bookTitle);
-      localStorage.setItem(key, JSON.stringify(cache));
-    } catch (e) {
-      console.error('Error saving AI cache to localStorage', e);
-    }
+  decreaseFontSize() {
+    this.state.update(state => ({ ...state, fontSize: Math.max(state.fontSize - 1, 12) }));
   }
 
-  private loadAiCache(bookTitle: string) {
+  setFontSize(size: number) {
+    this.state.update(state => ({
+      ...state,
+      fontSize: Math.max(12, Math.min(32, Number(size)))
+    }));
+  }
+
+  setTheme(theme: 'light' | 'dark') {
+    this.state.update(state => ({ ...state, theme }));
+  }
+  
+  setFontFamily(fontFamily: string) {
+    this.state.update(state => ({ ...state, fontFamily }));
+  }
+
+  updateCharacterCache(characterName: string, profile: CharacterProfile, imageUrl: string) {
+    this.state.update(state => ({
+      ...state,
+      aiCache: {
+        ...state.aiCache,
+        characters: {
+          ...state.aiCache.characters,
+          [characterName]: { profile, imageUrl },
+        },
+      },
+    }));
+  }
+
+  updateSummaryCache(chapterIndex: number, summary: string) {
+    this.state.update(state => ({
+      ...state,
+      aiCache: {
+        ...state.aiCache,
+        summaries: {
+          ...state.aiCache.summaries,
+          [chapterIndex]: summary,
+        },
+      },
+    }));
+  }
+
+  reset() {
+    // Keep user settings, but remove book data
+    const currentState = this.state();
+    const initialState = this.getInitialState();
+    this.state.set({
+      ...initialState,
+      theme: currentState.theme,
+      fontSize: currentState.fontSize,
+      fontFamily: currentState.fontFamily,
+    });
+    // The effect will overwrite localStorage with the reset state
+  }
+
+  private loadState(): AppState {
+    const initialState = this.getInitialState();
     try {
-      const key = this.getAiCacheStorageKey(bookTitle);
-      const savedCache = localStorage.getItem(key);
-      if (savedCache) {
-        this.aiCache.set(JSON.parse(savedCache));
-      } else {
-        this.aiCache.set({ characters: {}, summaries: {} });
+      const savedState = localStorage.getItem(EBOOK_READER_STATE);
+      if (savedState) {
+        // Merge saved state over defaults to ensure all properties exist
+        return { ...initialState, ...JSON.parse(savedState) };
       }
-    } catch (e) {
-      console.error('Error loading AI cache from localStorage', e);
-      this.aiCache.set({ characters: {}, summaries: {} });
+    } catch (error) {
+      console.error('Could not load state from localStorage', error);
     }
+    return initialState;
   }
 
-  private saveProgress(book: Book, chapterIndex: number, pageIndex: number) {
-    try {
-      const progress: Progress = { book, currentChapterIndex: chapterIndex, currentPageIndex: pageIndex };
-      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
-    } catch (e) {
-      console.error('Error saving progress to localStorage', e);
-    }
-  }
-
-  private loadProgress() {
-    try {
-      const savedProgress = localStorage.getItem(PROGRESS_STORAGE_KEY);
-      if (savedProgress) {
-        const progress: Progress = JSON.parse(savedProgress);
-        this.book.set(progress.book);
-        this.currentChapterIndex.set(progress.currentChapterIndex);
-        this.currentPageIndex.set(progress.currentPageIndex || 0);
-        if (progress.book?.title) {
-            this.loadAiCache(progress.book.title);
-        }
-      }
-    } catch (e) {
-      console.error('Error loading progress from localStorage', e);
-      localStorage.removeItem(PROGRESS_STORAGE_KEY);
-    }
-  }
-
-  private loadTheme() {
-    try {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as 'light' | 'dark' | null;
-      if (savedTheme) {
-        this.theme.set(savedTheme);
-      }
-    } catch (e) {
-      console.error('Error loading theme from localStorage', e);
-    }
-  }
-
-  private saveTheme(theme: 'light' | 'dark') {
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch (e) {
-      console.error('Error saving theme to localStorage', e);
-    }
-  }
-
-  private loadFontSize() {
-    try {
-      const savedSize = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
-      if (savedSize) {
-        const parsedSize = parseInt(savedSize, 10);
-        if (!isNaN(parsedSize)) {
-          this.fontSize.set(parsedSize);
-        }
-      }
-    } catch (e) {
-      console.error('Error loading font size from localStorage', e);
-    }
-  }
-
-  private saveFontSize(size: number) {
-    try {
-      localStorage.setItem(FONT_SIZE_STORAGE_KEY, size.toString());
-    } catch (e) {
-      console.error('Error saving font size to localStorage', e);
-    }
+  private getInitialState(): AppState {
+    const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return {
+      book: null,
+      currentChapterIndex: 0,
+      fontSize: 16,
+      theme: prefersDark ? 'dark' : 'light',
+      fontFamily: 'Literata',
+      aiCache: { characters: {}, summaries: {} },
+    };
   }
 }

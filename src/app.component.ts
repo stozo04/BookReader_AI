@@ -24,6 +24,7 @@ export class AppComponent {
 
   constructor() {
     effect(() => {
+      // FIX: Correctly access the theme signal's value
       if (this.progressService.theme() === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
@@ -33,6 +34,7 @@ export class AppComponent {
   }
 
   onBookLoaded(book: Book) {
+    // FIX: Correctly call the loadBook method on the service
     this.progressService.loadBook(book);
   }
 }

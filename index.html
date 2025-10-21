@@ -1,67 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
   <title>AI E-Book Interactor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Charis+SIL:ital,wght@0,400;0,700;1,400;1,700&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500;600;700&family=Lexend:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400;1,7..72,500;1,7..72,600;1,7..72,700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Merriweather:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Public+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Configure Tailwind to use class-based dark mode
     tailwind.config = {
-      darkMode: 'class',
+      darkMode: 'class'
     }
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.mjs" type="module"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.0/mammoth.browser.min.js"></script>
-  <style>
-    /* Custom scrollbar for a better reading experience */
-    /* Light mode scrollbar (default) */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f5f9; /* slate-100 */
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1; /* slate-300 */
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8; /* slate-400 */
-    }
-
-    /* Dark mode scrollbar */
-    .dark::-webkit-scrollbar-track {
-      background: #1a202c; /* dark-gray-800 */
-    }
-    .dark::-webkit-scrollbar-thumb {
-      background: #4a5568; /* dark-gray-600 */
-    }
-    .dark::-webkit-scrollbar-thumb:hover {
-      background: #718096; /* dark-gray-500 */
+  <style type="text/tailwindcss">
+    @layer utilities {
+      /* Custom scrollbar styles */
+      ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        @apply bg-gray-100 dark:bg-gray-800;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        @apply bg-gray-400 dark:bg-gray-600;
+        border-radius: 10px;
+        border: 2px solid;
+        @apply border-gray-100 dark:border-gray-800;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        @apply bg-gray-500 dark:bg-gray-500;
+      }
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "rxjs": "https://aistudiocdn.com/rxjs@^7.8.2?conditions=es2015",
-    "rxjs/operators": "https://aistudiocdn.com/rxjs@^7.8.2/operators?conditions=es2015",
-    "rxjs/ajax": "https://aistudiocdn.com/rxjs@^7.8.2/ajax?conditions=es2015",
-    "rxjs/webSocket": "https://aistudiocdn.com/rxjs@^7.8.2/webSocket?conditions=es2015",
-    "rxjs/testing": "https://aistudiocdn.com/rxjs@^7.8.2/testing?conditions=es2015",
-    "rxjs/fetch": "https://aistudiocdn.com/rxjs@^7.8.2/fetch?conditions=es2015",
-    "@google/genai": "https://next.esm.sh/@google/genai@^1.25.0?external=rxjs",
-    "@angular/common": "https://next.esm.sh/@angular/common@^20.3.6?external=rxjs",
-    "@angular/common/http": "https://next.esm.sh/@angular/common@^20.3.6/http?external=rxjs",
-    "@angular/core": "https://next.esm.sh/@angular/core@^20.3.6?external=rxjs",
-    "@angular/platform-browser": "https://next.esm.sh/@angular/platform-browser@^20.3.6?external=rxjs",
-    "@angular/compiler": "https://next.esm.sh/@angular/compiler@^20.3.6?external=rxjs"
+
+  <!-- Book Parsing Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.mjs" type="module"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+
+  <!-- Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "rxjs": "https://aistudiocdn.com/rxjs@^7.8.2?conditions=es2015",
+      "rxjs/operators": "https://aistudiocdn.com/rxjs@^7.8.2/operators?conditions=es2015",
+      "rxjs/ajax": "https://aistudiocdn.com/rxjs@^7.8.2/ajax?conditions=es2015",
+      "rxjs/webSocket": "https://aistudiocdn.com/rxjs@^7.8.2/webSocket?conditions=es2015",
+      "rxjs/testing": "https://aistudiocdn.com/rxjs@^7.8.2/testing?conditions=es2015",
+      "rxjs/fetch": "https://aistudiocdn.com/rxjs@^7.8.2/fetch?conditions=es2015",
+      "@angular/compiler": "https://next.esm.sh/@angular/compiler@^20.3.6?external=rxjs",
+      "@angular/platform-browser": "https://next.esm.sh/@angular/platform-browser@^20.3.6?external=rxjs",
+      "@angular/common/http": "https://next.esm.sh/@angular/common@^20.3.6/http?external=rxjs",
+      "@angular/core": "https://next.esm.sh/@angular/core@^20.3.6?external=rxjs",
+      "@google/genai": "https://next.esm.sh/@google/genai@^1.25.0?external=rxjs",
+      "@angular/common": "https://next.esm.sh/@angular/common@^20.3.6?external=rxjs"
+    }
   }
-}
-</script>
+  </script>
 </head>
-<body class="font-sans">
+<body class="bg-gray-50 dark:bg-gray-900">
   <app-root></app-root>
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>
