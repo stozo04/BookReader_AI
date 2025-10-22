@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Ignore Angular CLI local cache and any files/dirs that start with .angular
+# Examples: .angular/  .angular-cache/  .angularrc  .angular-something
+.angular
+.angular*/
+
+# Ignore local environment file (developer-only, contains secrets)
+src/environments/environment.local.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
