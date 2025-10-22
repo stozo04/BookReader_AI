@@ -1,7 +1,9 @@
 // FIX: Implemented the BookLoaderComponent which was previously a placeholder.
+// UPDATE: Integrated Supabase for file upload to storage and book metadata insertion into the database.
 import { Component, ChangeDetectionStrategy, signal, inject, output } from '@angular/core';
 import { GeminiService } from '../../services/gemini.service';
 import { Book } from '../../models/ebook.model';
+import { SupabaseService } from '../../services/supabase.service';
 
 declare const pdfjsLib: any;
 declare const ePub: any;
@@ -72,6 +74,7 @@ export class BookLoaderComponent {
   backClicked = output<void>();
 
   private geminiService = inject(GeminiService);
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
     // FIX: Set the worker source for pdf.js to avoid errors.
@@ -94,6 +97,11 @@ export class BookLoaderComponent {
     this.loadingMessage.set('Reading file content...');
 
     try {
+      const user = this.supabaseService.currentUser;
+      if (!user) {
+          throw new Error('You must be logged in to upload a book.');
+      }
+      
       let textContent = '';
       switch (extension) {
         case 'txt':
@@ -115,12 +123,30 @@ export class BookLoaderComponent {
           throw new Error(`Unsupported file type: .${extension}. Please upload a .txt, .pdf, .epub, or .docx file.`);
       }
 
+      this.loadingMessage.set('Uploading book file...');
+      const filePath = await this.supabaseService.uploadBookFile(file, user.id);
+
       this.loadingMessage.set('Analyzing book structure with AI...');
+      const structuredBook = await this.geminiService.structureBookFromText(textContent);
       
-      const book = await this.geminiService.structureBookFromText(textContent);
+      this.loadingMessage.set('Saving to your library...');
+      const newBookData = {
+          user_id: user.id,
+          title: structuredBook.title,
+          author: structuredBook.author,
+          file_path: filePath,
+          structured_content: {
+              chapters: structuredBook.chapters,
+              characters: structuredBook.characters,
+          },
+      };
+
+      // @ts-ignore - The Omit type makes this compatible
+      const finalBook = await this.supabaseService.addBook(newBookData);
       
       this.loadingMessage.set('Book loaded successfully!');
-      this.bookLoaded.emit(book);
+      this.bookLoaded.emit(finalBook);
+
     } catch (error) {
       console.error('Error processing book:', error);
       this.errorMessage.set(`Failed to process book. ${error instanceof Error ? error.message : 'Please try again.'}`);

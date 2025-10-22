@@ -1,9 +1,14 @@
 // FIX: Created model interfaces for the application.
+// UPDATE: Added 'id', 'user_id', 'file_path', and 'cover_url' to Book model for Supabase integration.
 export interface Book {
+  id: number;
+  user_id: string;
+  file_path: string;
   title: string;
   author: string;
   chapters: Chapter[];
   characters: string[];
+  cover_url?: string;
 }
 
 export interface Chapter {
