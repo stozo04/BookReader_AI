@@ -20,17 +20,22 @@ type SidebarView = {
         [class.w-96]="!isSidebarCollapsed()"
         [class.w-20]="isSidebarCollapsed()">
         <!-- Sidebar Header -->
-        <div class="p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
-          @if (!isSidebarCollapsed()) {
-            <h1 class="text-xl font-bold truncate">{{ progressService.book()?.title }}</h1>
-            <h2 class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ progressService.book()?.author }}</h2>
-          } @else {
-            <div class="flex justify-center items-center h-full">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-              </svg>
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 shrink-0 flex items-center space-x-3">
+            <button (click)="goBackToLibrary()" [disabled]="isSaving()" title="Back to Library" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-wait">
+                @if(isSaving()) {
+                  <div class="w-6 h-6 border-2 border-blue-500 border-solid rounded-full animate-spin border-t-transparent"></div>
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                  </svg>
+                }
+            </button>
+            @if (!isSidebarCollapsed()) {
+            <div class="min-w-0 flex-1">
+                <h1 class="text-xl font-bold truncate">{{ progressService.book()?.title }}</h1>
+                <h2 class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ progressService.book()?.author }}</h2>
             </div>
-          }
+            }
         </div>
 
         <!-- Sidebar Content -->
@@ -293,11 +298,6 @@ type SidebarView = {
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ selectedFontDescription() }}</p>
                   }
                 </div>
-
-                  <div>
-                    <h4 class="font-semibold text-lg mb-3">Book</h4>
-                      <button (click)="progressService.reset()" class="w-full px-4 py-2 rounded-md border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors">Load a Different Book</button>
-                </div>
               </div>
             </div>
           </div>
@@ -334,6 +334,7 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
   // UI State
   isSettingsOpen = signal(false);
   isSidebarCollapsed = signal(false);
+  isSaving = signal(false);
   activeTab = signal<'chapters' | 'characters' | 'summaries'>('chapters');
   sidebarView = signal<SidebarView>({ type: 'list' });
   sidebarState = signal({ loading: false, error: null as string | null, loadingMessage: '' });
@@ -408,6 +409,19 @@ export class EbookReaderComponent implements AfterViewInit, OnDestroy {
       if (this.contentClickListener && this.contentArea) {
           this.contentArea.nativeElement.removeEventListener('click', this.contentClickListener);
       }
+  }
+
+  async goBackToLibrary() {
+    this.isSaving.set(true);
+    try {
+      await this.progressService.reset();
+    } catch(e) {
+      console.error("Failed to save progress on exit:", e);
+      // Even if saving fails, we should probably still let the user navigate.
+      // The progress will be saved in localStorage for the next session.
+    } finally {
+      this.isSaving.set(false);
+    }
   }
 
   toggleSidebar() {

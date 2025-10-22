@@ -1,6 +1,7 @@
 // FIX: Implemented the ProgressService which was previously a placeholder.
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Book, AiCache, CharacterProfile } from '../models/ebook.model';
+import { SupabaseService } from './supabase.service';
 
 const EBOOK_READER_STATE = 'ebook_reader_state';
 
@@ -11,12 +12,14 @@ interface AppState {
   theme: 'light' | 'dark';
   fontFamily: string;
   aiCache: AiCache;
+  progressByBookId: { [id: number]: number }; // bookId: chapterIndex
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProgressService {
+  private supabaseService = inject(SupabaseService);
   private state = signal<AppState>(this.loadState());
 
   book = computed(() => this.state().book);
@@ -48,18 +51,34 @@ export class ProgressService {
   }
 
   loadBook(book: Book) {
+    // Initialize chapter index from the book's persisted data from Supabase
+    const lastChapterIndex = book.current_chapter_index || 0;
     this.state.update(state => ({
       ...state,
       book,
-      currentChapterIndex: 0,
+      currentChapterIndex: lastChapterIndex,
+      // Update local progress map as well
+      progressByBookId: {
+        ...state.progressByBookId,
+        [book.id]: lastChapterIndex,
+      },
       aiCache: { characters: {}, summaries: {} },
     }));
   }
   
   goToChapter(index: number) {
+    const book = this.state().book;
     const total = this.totalChapters();
-    if (index >= 0 && index < total) {
-      this.state.update(state => ({ ...state, currentChapterIndex: index }));
+    if (book && index >= 0 && index < total) {
+      this.state.update(state => ({
+        ...state,
+        currentChapterIndex: index,
+        // Update the local progress map; this will be synced on exit.
+        progressByBookId: {
+          ...state.progressByBookId,
+          [book.id]: index,
+        },
+      }));
     }
   }
 
@@ -120,17 +139,28 @@ export class ProgressService {
     }));
   }
 
-  reset() {
-    // Keep user settings, but remove book data
-    const currentState = this.state();
-    const initialState = this.getInitialState();
-    this.state.set({
-      ...initialState,
-      theme: currentState.theme,
-      fontSize: currentState.fontSize,
-      fontFamily: currentState.fontFamily,
+  async reset() {
+    const currentBook = this.book();
+    if (currentBook) {
+      const latestChapterIndex = this.state().progressByBookId[currentBook.id] ?? currentBook.current_chapter_index;
+      try {
+        await this.supabaseService.updateBookProgress(currentBook.id, latestChapterIndex);
+      } catch (error) {
+        console.error("Failed to save progress to Supabase:", error);
+        // Optionally, notify the user that progress couldn't be saved.
+      }
+    }
+
+    // Keep user settings and progress, but clear the active book
+    this.state.update(state => {
+      const initialState = this.getInitialState();
+      return {
+        ...state,
+        book: null,
+        currentChapterIndex: 0,
+        aiCache: initialState.aiCache,
+      };
     });
-    // The effect will overwrite localStorage with the reset state
   }
 
   private loadState(): AppState {
@@ -138,8 +168,9 @@ export class ProgressService {
     try {
       const savedState = localStorage.getItem(EBOOK_READER_STATE);
       if (savedState) {
+        const parsed = JSON.parse(savedState);
         // Merge saved state over defaults to ensure all properties exist
-        return { ...initialState, ...JSON.parse(savedState) };
+        return { ...initialState, ...parsed };
       }
     } catch (error) {
       console.error('Could not load state from localStorage', error);
@@ -156,6 +187,7 @@ export class ProgressService {
       theme: prefersDark ? 'dark' : 'light',
       fontFamily: 'Literata',
       aiCache: { characters: {}, summaries: {} },
+      progressByBookId: {},
     };
   }
 }

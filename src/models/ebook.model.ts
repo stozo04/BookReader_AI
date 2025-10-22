@@ -9,6 +9,7 @@ export interface Book {
   chapters: Chapter[];
   characters: string[];
   cover_url?: string;
+  current_chapter_index: number;
 }
 
 export interface Chapter {

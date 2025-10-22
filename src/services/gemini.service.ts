@@ -1,24 +1,55 @@
 // FIX: Implemented the GeminiService to handle all interactions with the Google GenAI API.
 import { Injectable } from '@angular/core';
 import { GoogleGenAI, Type } from '@google/genai';
-import { Book, CharacterProfile } from '../models/ebook.model';
+import { Book, CharacterProfile, Chapter } from '../models/ebook.model';
 
-// The instructions are strict about using process.env.API_KEY.
-// This declaration is a workaround for the browser environment where 'process' is not a standard global.
-// It assumes the execution environment will provide this object.
-declare const process: any;
+// FIX: Use environment variable for API key as per security best practices.
+const GEMINI_API_KEY = process.env.API_KEY;
+
+// DEV_FLAG: This is now dynamic. The bypass is active only if the API key is not provided.
+const IS_DEV_BYPASS = !GEMINI_API_KEY;
 
 @Injectable({
   providedIn: 'root',
 })
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (IS_DEV_BYPASS) {
+      console.warn(
+        'GeminiService: API key not found via process.env.API_KEY. Running in development bypass mode. ' +
+        'To enable live AI features, ensure the API_KEY environment variable is set.'
+      );
+    } else {
+      // API key is asserted to be non-null here due to IS_DEV_BYPASS check.
+      this.ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
+    }
   }
 
   async structureBookFromText(textContent: string): Promise<Book> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn("Bypassing Gemini book structuring for development.");
+        // Return a mock book structure
+        const mockChapters: Chapter[] = textContent.split(/\n\s*\n/).filter(p => p.trim()).slice(0, 15).map((p, i) => ({
+            title: `Mock Chapter ${i + 1}`,
+            content: p || `This is the mock content for chapter ${i + 1}. It is generated locally.`
+        }));
+
+        const mockBook: Book = {
+            id: 0,
+            user_id: 'dev_user',
+            file_path: 'local/mock.txt',
+            title: "Mock Book Title",
+            author: "Development Author",
+            chapters: mockChapters.length > 0 ? mockChapters : [{ title: 'Chapter 1', content: 'The book content could not be parsed or was empty.' }],
+            characters: ["Alice", "The Mad Hatter", "The Queen of Hearts", "Bob"],
+            // FIX: Added missing required property to satisfy the Book interface.
+            current_chapter_index: 0,
+        };
+        return new Promise(resolve => setTimeout(() => resolve(mockBook), 1500));
+    }
+
     const bookSchema = {
       type: Type.OBJECT,
       properties: {
@@ -56,7 +87,15 @@ export class GeminiService {
       });
 
       const jsonString = response.text;
-      const structuredBook: Book = JSON.parse(jsonString);
+      const partialBook = JSON.parse(jsonString);
+      // FIX: Augment the partial book from AI with required fields to match the return type.
+      const structuredBook: Book = {
+        ...partialBook,
+        id: -1, // placeholder
+        user_id: '', // placeholder
+        file_path: '', // placeholder
+        current_chapter_index: 0,
+      };
       return structuredBook;
     } catch (error) {
       console.error('Error structuring book with Gemini:', error);
@@ -65,6 +104,20 @@ export class GeminiService {
   }
 
   async getCharacterProfile(characterName: string, book: Book): Promise<CharacterProfile> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini profile generation for ${characterName}.`);
+        const mockProfile: CharacterProfile = {
+            description: `This is a mock description for ${characterName}. They are a central figure in this mock book, known for their courage and wit. This profile was generated locally for development purposes.`,
+            physicalAppearance: "A tall individual with striking blue eyes and a friendly smile. Their appearance is notable and often commented on by others.",
+            relationships: [
+                { characterName: "Alice", relationshipType: "Friend" },
+                { characterName: "The Mad Hatter", relationshipType: "Ally" },
+                { characterName: "The Queen of Hearts", relationshipType: "Antagonist" }
+            ].filter(r => r.characterName !== characterName)
+        };
+        return new Promise(resolve => setTimeout(() => resolve(mockProfile), 1000)); // Simulate network delay
+    }
+    
     const characterProfileSchema = {
         type: Type.OBJECT,
         properties: {
@@ -120,6 +173,13 @@ ${contextText}
   }
 
   async generateCharacterImage(characterName: string, physicalAppearance: string, bookTitle: string): Promise<string> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini image generation for ${characterName}.`);
+        // A simple, small, gray placeholder image (base64 encoded).
+        const mockImageBytes = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAB/g1sMAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAACXBIWXMAAAsTAAALEwEAmpwYAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wmetaIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIj4KICAgICAgICAgPHRpZmY6UmVzb2x1dGlvblVuaXQ+MjwvdGlmZjpSZXNvbHV0aW9uVW5pdD4KICAgICAgICAgPHRpZmY6WFJlc29sdXRpb24+NzI8L3RpZmY6WFJlc29sdXRpb24+CiAgICAgICAgIDx0aWZmOllSZXNvbHV0aW9uPjcyPC90aWZmOllSZXNvbHV0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wmetaPgpMwidZAAABJElEQVR42uzZsQ2AMBAF0e8/JR0kEEjA0s093AlI4A95AIHkd2fX5z3n/h5+n88BwBUmB8AYJgfAGCYHwBgmdQDm7u6+vr6+u7vLMAxIJBKfz2cyySQSiSRJlmVZlmVZ161pmhAEURRFEARBkiQIgqBpmjiO4ziOY7/f6/V6v9/v9/sQQhAEy7JEURRFURzHruv6PE8QBEEQBEEQBMuyLMuyLMsURcGyrFixYkWMjo6urq4ODg583w8hBEEQBEFzcyvP87qu67qur7u7W5ZlkiSchOM4SRJBEARBEARBEARBEARBkiRJkiRJkixJkiSdTqdpmhAEQRD0+32SJBzH+/3+6uqqqqra2toCgYDt7W0sFkssFlssFu12u91um6YpSRJBEARBEARBkiT/2gcYJgfAGCYHwBgmB8AYpgcAL/wDCvE4fOpJ3wcAAAAASUVORK5CYII=';
+        return new Promise(resolve => setTimeout(() => resolve(mockImageBytes), 1500));
+    }
+    
     try {
         const response = await this.ai.models.generateImages({
             model: 'imagen-3.0-generate-002',
@@ -138,6 +198,12 @@ ${contextText}
   }
 
   async getChapterSummary(chapterTitle: string, chapterContent: string, bookTitle: string): Promise<string> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini summary for chapter "${chapterTitle}".`);
+        const mockSummary = `This is a mock summary for the chapter titled "${chapterTitle}". Key events include mock characters doing mock things. This summary was generated locally for development purposes.`;
+        return new Promise(resolve => setTimeout(() => resolve(mockSummary), 800));
+    }
+    
     try {
         const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -151,6 +217,12 @@ ${contextText}
   }
   
   async summarizeSelection(selectedText: string, bookTitle: string): Promise<string> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini summary for selection.`);
+        const mockSummary = `This is a mock summary of your selected text. It highlights the main points in a simulated, developer-friendly way.`;
+        return new Promise(resolve => setTimeout(() => resolve(mockSummary), 500));
+    }
+
     try {
         const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -164,6 +236,13 @@ ${contextText}
   }
 
   async generateSceneImage(selectedText: string, bookTitle: string): Promise<string> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini scene image generation.`);
+         // A simple, small, gray placeholder image (base64 encoded).
+        const mockImageBytes = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAB/g1sMAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAACXBIWXMAAAsTAAALEwEAmpwYAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wmetaIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIj4KICAgICAgICAgPHRpZmY6UmVzb2x1dGlvblVuaXQ+MjwvdGlmZjpSZXNvbHV0aW9uVW5pdD4KICAgICAgICAgPHRpZmY6WFJlc29sdXRpb24+NzI8L3RpZmY6WFJlc29sdXRpb24+CiAgICAgICAgIDx0aWZmOllSZXNvbHV0aW9uPjcyPC90aWZmOllSZXNvbHV0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wmetaPgpMwidZAAABJElEQVR42uzZsQ2AMBAF0e8/JR0kEEjA0s093AlI4A95AIHkd2fX5z3n/h5+n88BwBUmB8AYJgfAGCYHwBgmdQDm7u6+vr6+u7vLMAxIJBKfz2cyySQSiSRJlmVZlmVZ161pmhAEURRFEARBkiQIgqBpmjiO4ziOY7/f6/V6v9/v9/sQQhAEy7JEURRFURzHruv6PE8QBEEQBEEQBMuyLMuyLMsURcGyrFixYkWMjo6urq4ODg583w8hBEEQBEFzcyvP87qu67qur7u7W5ZlkiSchOM4SRJBEARBEARBEARBEARBkiRJkiRJkixJkiSdTqdpmhAEQRD0+32SJBzH+/3+6uqqqqra2toCgYDt7W0sFkssFlssFu12u91um6YpSRJBEARBEARBkiT/2gcYJgfAGCYHwBgmB8AYpgcAL/wDCvE4fOpJ3wcAAAAASUVORK5CYII=';
+        return new Promise(resolve => setTimeout(() => resolve(mockImageBytes), 2000));
+    }
+
     try {
         const response = await this.ai.models.generateImages({
             model: 'imagen-3.0-generate-002',
@@ -182,6 +261,11 @@ ${contextText}
   }
 
   async getDefinition(word: string): Promise<string> {
+    if (IS_DEV_BYPASS || !this.ai) {
+        console.warn(`Bypassing Gemini definition for "${word}".`);
+        return new Promise(resolve => setTimeout(() => resolve(`This is a mock definition for "${word}". It is a word used in this book for illustrative purposes in a development environment.`), 500));
+    }
+    
     try {
         const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',

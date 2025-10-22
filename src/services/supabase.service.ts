@@ -14,7 +14,11 @@ export interface DbBook {
     characters: string[];
   };
   user_id: string;
+  current_chapter_index: number;
 }
+
+// DEV_FLAG: Set to true to bypass Google Sign-In for development environments where redirects do not work.
+const IS_DEV_BYPASS = true;
 
 @Injectable({
   providedIn: 'root',
@@ -29,20 +33,58 @@ export class SupabaseService {
   constructor() {
     this.supabase = createClient(this.supabaseUrl, this.supabaseAnonKey);
     
-    this.supabase.auth.getSession().then(({ data: { session } }) => {
-      this.session.set(session);
-    });
+    if (IS_DEV_BYPASS) {
+      this.createDevelopmentSession();
+    } else {
+      this.supabase.auth.getSession().then(({ data: { session } }) => {
+        this.session.set(session);
+      });
 
-    this.supabase.auth.onAuthStateChange((_event, session) => {
-      this.session.set(session);
-    });
+      this.supabase.auth.onAuthStateChange((_event, session) => {
+        this.session.set(session);
+      });
+    }
   }
 
   get currentUser(): User | null {
     return this.session()?.user ?? null;
   }
 
+  private createDevelopmentSession() {
+      const mockUser: User = {
+          id: '489f40c8-f103-4146-90c0-fa649c449510', // From provided JWT
+          app_metadata: { provider: 'google', providers: ['google'] },
+          user_metadata: {
+              email: 'gates.steven@gmail.com',
+              full_name: 'Steven Gates',
+          },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+          is_anonymous: false,
+          role: 'authenticated',
+          email: 'gates.steven@gmail.com',
+          phone: '',
+          updated_at: new Date().toISOString(),
+      };
+
+      const mockSession: Session = {
+          access_token: 'mock_access_token_for_dev',
+          refresh_token: 'mock_refresh_token_for_dev',
+          token_type: 'bearer',
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: mockUser,
+      };
+
+      this.session.set(mockSession);
+  }
+
   async signInWithGoogle(): Promise<void> {
+    if (IS_DEV_BYPASS) {
+      console.log("Bypassing Google Sign-In for development.");
+      this.createDevelopmentSession();
+      return;
+    }
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
     });
@@ -53,6 +95,10 @@ export class SupabaseService {
   }
 
   async signOut(): Promise<void> {
+    if (IS_DEV_BYPASS) {
+        this.session.set(null);
+        return;
+    }
     const { error } = await this.supabase.auth.signOut();
     if (error) {
       console.error('Error signing out:', error.message);
@@ -87,10 +133,15 @@ export class SupabaseService {
       return filePath;
   }
 
-  async addBook(bookData: Omit<DbBook, 'id' | 'created_at' | 'cover_url'>): Promise<Book> {
+  async addBook(bookData: Omit<DbBook, 'id' | 'created_at' | 'cover_url' | 'current_chapter_index'>): Promise<Book> {
+      const dataToInsert = {
+        ...bookData,
+        current_chapter_index: 0
+      };
+
       const { data, error } = await this.supabase
           .from('books')
-          .insert([bookData])
+          .insert([dataToInsert])
           .select()
           .single();
 
@@ -99,6 +150,18 @@ export class SupabaseService {
           throw new Error('Could not save the book to your library.');
       }
       return this.fromDbBook(data as DbBook);
+  }
+
+  async updateBookProgress(bookId: number, chapterIndex: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('books')
+      .update({ current_chapter_index: chapterIndex })
+      .eq('id', bookId);
+
+    if (error) {
+      console.error('Error updating book progress:', error);
+      throw new Error('Could not save your reading progress.');
+    }
   }
 
   private fromDbBook(dbBook: DbBook): Book {
@@ -111,6 +174,7 @@ export class SupabaseService {
       cover_url: dbBook.cover_url ?? undefined,
       user_id: dbBook.user_id,
       file_path: dbBook.file_path,
+      current_chapter_index: dbBook.current_chapter_index || 0,
     };
   }
 }

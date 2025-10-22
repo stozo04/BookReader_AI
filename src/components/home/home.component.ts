@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, output, inject, signal, effect } from '@angular/core';
 import { SupabaseService } from '../../services/supabase.service';
 import { Book } from '../../models/ebook.model';
+import { NgOptimizedImage } from '@angular/common';
 
 @Component({
   selector: 'app-home',
@@ -43,7 +44,8 @@ import { Book } from '../../models/ebook.model';
               @for(book of books(); track book.id) {
                 <div (click)="bookSelected.emit(book)" class="group cursor-pointer" title="{{ book.title }} by {{ book.author }}">
                   <div class="aspect-[2/3] bg-gray-800 rounded-lg overflow-hidden relative shadow-lg transform group-hover:scale-105 transition-transform duration-300">
-                    <img [src]="book.cover_url || 'https://picsum.photos/seed/'+book.id+'/300/450'" [alt]="'Cover of ' + book.title" class="w-full h-full object-cover" width="300" height="450" />
+                    <!-- FIX: Use NgOptimizedImage for better performance -->
+                    <img [ngSrc]="book.cover_url || 'https://picsum.photos/seed/'+book.id+'/300/450'" [alt]="'Cover of ' + book.title" class="w-full h-full object-cover" width="300" height="450" />
                     <div class="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors"></div>
                   </div>
                   <h3 class="mt-3 font-semibold text-gray-100 truncate">{{ book.title }}</h3>
@@ -85,6 +87,7 @@ import { Book } from '../../models/ebook.model';
         aspect-ratio: 2 / 3;
     }
   `,
+  imports: [NgOptimizedImage],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HomeComponent {
