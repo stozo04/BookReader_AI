@@ -11,7 +11,14 @@ declare const mammoth: any;
   selector: 'app-book-loader',
   template: `
     <div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div class="w-full max-w-lg p-8 space-y-8 bg-white rounded-lg shadow-lg dark:bg-gray-800">
+      <div class="relative w-full max-w-lg p-8 space-y-8 bg-white rounded-lg shadow-lg dark:bg-gray-800">
+        @if (!isLoading()) {
+          <button (click)="backClicked.emit()" title="Go back to Home" class="absolute top-4 left-4 p-2 text-gray-500 rounded-full hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        }
         @if (isLoading()) {
           <div class="flex flex-col items-center justify-center">
             <div class="w-16 h-16 border-4 border-blue-500 border-solid rounded-full animate-spin border-t-transparent"></div>
@@ -19,8 +26,8 @@ declare const mammoth: any;
           </div>
         } @else {
           <div class="text-center">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">AI-Powered eBook Reader</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">Upload a book to begin. Supported formats: .txt, .pdf, .epub, .docx</p>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Upload Your eBook</h1>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Supported formats: .txt, .pdf, .epub, .docx</p>
           </div>
           <div class="flex items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
             <input type="file" id="file-upload" class="hidden" (change)="onFileSelected($event)" accept=".txt,.pdf,.epub,.docx">
@@ -62,6 +69,7 @@ export class BookLoaderComponent {
   errorMessage = signal<string | null>(null);
 
   bookLoaded = output<Book>();
+  backClicked = output<void>();
 
   private geminiService = inject(GeminiService);
 
