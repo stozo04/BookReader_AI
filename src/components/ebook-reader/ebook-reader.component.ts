@@ -21,15 +21,9 @@ type SidebarView = {
         [class.w-20]="isSidebarCollapsed()">
         <!-- Sidebar Header -->
         <div class="p-4 border-b border-gray-200 dark:border-gray-700 shrink-0 flex items-center space-x-3">
-            <button (click)="goBackToLibrary()" [disabled]="isSaving()" title="Back to Library" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-wait">
-                @if(isSaving()) {
-                  <div class="w-6 h-6 border-2 border-blue-500 border-solid rounded-full animate-spin border-t-transparent"></div>
-                } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                  </svg>
-                }
-            </button>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-500 dark:text-gray-400 shrink-0">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
             @if (!isSidebarCollapsed()) {
             <div class="min-w-0 flex-1">
                 <h1 class="text-xl font-bold truncate">{{ progressService.book()?.title }}</h1>
@@ -209,8 +203,22 @@ type SidebarView = {
       <!-- Main Content -->
       <main class="flex-1 flex flex-col overflow-hidden">
         <!-- Header -->
-        <header class="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm z-10 shrink-0">
+        <header class="grid grid-cols-3 items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm z-10 shrink-0">
+          <div><!-- Left Gutter --></div>
           <h3 class="text-2xl font-bold text-center truncate">{{ progressService.currentChapter()?.title }}</h3>
+          <div class="flex justify-end">
+             <button (click)="goBackToLibrary()" [disabled]="isSaving()" class="flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                @if(isSaving()) {
+                    <div class="w-4 h-4 border-2 border-current border-solid rounded-full animate-spin border-t-transparent"></div>
+                    <span>Saving...</span>
+                } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                    </svg>
+                    <span>Finish Reading</span>
+                }
+            </button>
+          </div>
         </header>
 
         <!-- Chapter Content -->
