@@ -18,7 +18,7 @@ dist-ssr
 .angular*/
 
 # Ignore local environment file (developer-only, contains secrets)
-src/environments/environment.local.ts
+src/environments/*
 
 # Editor directories and files
 .vscode/*
